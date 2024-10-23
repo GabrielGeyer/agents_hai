@@ -53,7 +53,7 @@ async def query_openai(request: QueryRequest):
                     "content": "Say this is a test",
                 }
             ],
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini", 
         )
 
         return QueryResponse(response=chat_completion.choices[0].message.content)
