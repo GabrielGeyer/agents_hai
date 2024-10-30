@@ -43,14 +43,14 @@ class QueryResponse(BaseModel):
 async def query_openai(request: QueryRequest):
     try:
         # Set your OpenAI API key
-        
+        promt = f'''{request.prompt}'''
 
         # Call the OpenAI API via LangChain
         chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "user",
-                    "content": "Say this is a test",
+                    "content": promt,
                 }
             ],
             model="gpt-4o-mini", 
