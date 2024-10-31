@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from openai import OpenAI
 import os
@@ -32,12 +33,6 @@ client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-# Define request and response models
-class QueryRequest(BaseModel):
-    prompt: str
-
-class QueryResponse(BaseModel):
-    response: str
 
 #Tools
 #sql tool
@@ -51,11 +46,11 @@ def execute_sql(sql_query):
     return str(e)
   
 #Vega chart generation tool
-def generate_vega_spec(question: str, data_url: str, mark_type: str = "bar", x_field: str = None, y_field: str = None, color_field: str = None) -> dict:
+def generate_vega_spec(question: str, data: list, mark_type: str = "bar", x_field: str = None, y_field: str = None, color_field: str = None) -> dict:
    spec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "description": question,
-        "data": {"url": data_url},
+        "data": {"values": [data]},
         "mark": mark_type,
         "encoding": {
             "x": {"field": x_field, "type": "quantitative" if mark_type != "text" else "ordinal"},
@@ -96,9 +91,9 @@ tools = [
                     "type": "string",
                     "description": "The user's query or prompt, which provides context for the type of visualization."
                 },
-                "data_url": {
-                    "type": "string",
-                    "description": "URL of the data source to be visualized."
+                "data": {
+                    "type": "object",
+                    "description": "A list of of data points pairs in dictonary form. "
                 },
                 "mark_type": {
                     "type": "string",
@@ -117,7 +112,7 @@ tools = [
                 }
               
           },
-          "required": ["question", "data_url"],
+          "required": ["question", "data"],
           "additionalProperties": False,
       }
     }
@@ -126,14 +121,20 @@ tools = [
 tool_map = {
     'execute_sql': execute_sql,
     'generate_vega_spec': generate_vega_spec,
-}
-
+} 
+   
+class QueryRequest(BaseModel):
+    prompt: str
+    data: List[Dict[str, Any]] 
+class QueryResponse(BaseModel):
+   answer: str      
+ 
 # Endpoint to interact with OpenAI API via LangChain
 @app.post("/query", response_model=QueryResponse)
 async def query_openai(request: QueryRequest):
     try:
-        prompt = f'''Question:{request.prompt} Data:'''
-        system_prompt = 'You are a helpful assistant. Please only answer questions related to the dataset. You will have tools availible to help. '
+        prompt = f'''Question: {request.prompt} Data: {request.data[0:60]} '''
+        system_prompt = 'You are a helpful assistant. Please only answer related to the data set. You will have tools availible to help. '
         max_itterations = 6
        
         messages = [{"role": "system", "content": system_prompt}]
@@ -141,12 +142,12 @@ async def query_openai(request: QueryRequest):
 
         i = 0
         while i < max_itterations:
+            
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
                 tools=tools
             )
-
             if response.choices[0].message.tool_calls==None:
                 break
 
@@ -176,11 +177,12 @@ async def query_openai(request: QueryRequest):
                 messages.append(function_call_result_message)
             i += 1
 
-        return QueryResponse(response)
+        return QueryResponse(answer=str(response.choices[0].message.content)) 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Root endpoint
 @app.get("/")
 async def read_root():
-    return FileResponse('static/index.html')
+    return FileResponse('static/index.html') 

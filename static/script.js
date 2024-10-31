@@ -1,12 +1,13 @@
 const sendBtn = document.querySelector('#send-btn');
 const promptInput = document.querySelector('#prompt-input');
-const responseText = document.querySelector('#response-text');
+//const responseText = document.querySelector('#response-text');
 const fileUpload = document.querySelector('#file-upload');
 const dropZone = document.querySelector('#drop-zone');
 const errorMessage = document.querySelector('#error-message');
 const tableHead = document.querySelector('#table-head');
 const tableBody = document.querySelector('#table-body');
 let parsedData = null;
+const chat = document.querySelector("#chat");
 
 // Enable send button when input is provided
 promptInput.addEventListener('input', function (event) {
@@ -73,16 +74,29 @@ promptInput.addEventListener('keyup', function (event) {
 });
 
 function sendMessage() {
+
+    var botReply = document.createElement("div");
+    botReply.setAttribute("class", "bg-secondary-subtle rounded-2 m-2 p-2 text-start");
+
     const prompt = promptInput.value;
     if (!prompt || !parsedData) {
-        responseText.textContent = 'Please upload a CSV file and ask a question.';
+        botReply.textContent = 'Please upload a CSV file and ask a question.';
         return;
     }
 
     promptInput.value = '';
     sendBtn.disabled = true;
-    responseText.textContent = 'Waiting for response...';
+    botReply.textContent = 'Waiting for response...';
+    
+    
 
+    var newchat = document.createElement("div");
+    newchat.setAttribute("class", "bg-primary-subtle rounded-2 m-2 p-2 text-end");
+    newchat.innerHTML = prompt;
+    chat.appendChild(newchat);
+    chat.appendChild(botReply);
+
+    console.log(parsedData);
     // Send request to backend
     fetch('/query', {
         method: 'POST',
@@ -93,11 +107,12 @@ function sendMessage() {
     })
         .then(response => response.json())
         .then(data => {
-            responseText.textContent = data.description;
-            renderVegaChart(data.vegaSpec);
+            
+            botReply.innerHTML = data.answer;
+            
         })
         .catch(error => {
-            responseText.textContent = 'Error: ' + error.message;
+            botReply.textContent = 'Error: ' + error.message;
         })
         .finally(() => {
             sendBtn.disabled = false;
@@ -105,7 +120,7 @@ function sendMessage() {
 }
 
 // Render Vega-Lite chart
-function renderVegaChart(spec) {
-    vegaEmbed('#vega-chart', spec)
-        .catch(error => console.error('Error rendering Vega chart:', error));
-}
+// function renderVegaChart(spec) {
+//     vegaEmbed('#vega-chart', spec)
+//         .catch(error => console.error('Error rendering Vega chart:', error));
+// }
